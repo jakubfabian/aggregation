@@ -79,6 +79,7 @@ class Aggregate(object):
         self.X = self._generator.generate().T
         self.ident = np.full(self.X.shape[0], ident, dtype=np.int32)        
         self.update_extent()
+        self.monomer_number = 1
 
 
     def update_extent(self):
@@ -226,7 +227,7 @@ class Aggregate(object):
 
                   
     def add_particle(self, particle=None, ident=None, required=False, 
-        pen_depth=0.0):
+        pen_depth=0.0, add_N_monomers=None):
 
         """Merge another particle into this one.
 
@@ -252,7 +253,8 @@ class Aggregate(object):
 
         # measurements of the other particle
         if particle is None:
-            particle = self._generator.generate().T      
+            particle = self._generator.generate().T
+            add_N_monomers = 1
         x = particle[:,0]
         y = particle[:,1]
         z = particle[:,2]
@@ -337,7 +339,8 @@ class Aggregate(object):
             p_shift = np.vstack((xs,ys,zs)).T
             if ident is None:
                 ident = np.zeros(p_shift.shape[0], dtype=np.int32)
-            self.add_elements(p_shift, ident=ident)  
+            self.add_elements(p_shift, ident=ident)
+            self.monomer_number += add_N_monomers
             
         return site_found        
          
@@ -760,11 +763,13 @@ class PseudoAggregate(Aggregate):
         y = self.X[:,1]+stats.norm.rvs(scale=sig)
         z = self.X[:,2]+stats.norm.rvs(scale=sig)
         self.extent = [[x.min(), x.max()], [y.min(), y.max()], [z.min(), z.max()]]
+        self.monomer_number = 1
          
                   
-    def add_particle(self, particle=None, required=False):
+    def add_particle(self, particle=None, required=False, add_N_monomers=None):
         if particle == None:
             particle = self.generator.generate().T
+            add_N_monomers
         x = particle[:,0]+stats.norm.rvs(scale=self.sig)
         y = particle[:,1]+stats.norm.rvs(scale=self.sig)
         z = particle[:,2]+stats.norm.rvs(scale=self.sig)
@@ -773,3 +778,4 @@ class PseudoAggregate(Aggregate):
         y = self.X[:,1]
         z = self.X[:,2]
         self.extent = [[x.min(), x.max()], [y.min(), y.max()], [z.min(), z.max()]]
+        self.monomer_number += add_N_monomers
