@@ -25,8 +25,8 @@ from matplotlib import pyplot, colors
 import numpy as np
 from numpy import random
 from scipy import linalg, stats
-from . import generator
-from .index import Index2D
+from . import generator, rotator
+from .index import Index2D, Index3D
 
 
 if sys.version_info[0] >= 3:
@@ -58,6 +58,35 @@ def min_z_separation(elems,ref_elem,grid_res_sqr):
     z_sep[~match_possible] = np.inf            
     return z_sep.min()
 
+def get_proj_area_from_alphashape(proj_grid, alpha=0.4):
+    """
+    Calculate the projected area from an alpha shape, which is based on the projected grid
+
+    Args:
+        proj_grid: 2d-projected grid
+        alpha: alpha parameter: see https://pypi.org/project/alphashape/
+    Returns:
+        alpha shape: see https://pypi.org/project/alphashape/e
+
+    """
+    import alphashape
+    from shapely.geometry import Point, Polygon
+    
+    coord = np.where(proj_grid>0) #get coordinates of ice pixel
+ 
+    alpha_shape = alphashape.alphashape(np.column_stack((coord[0],coord[1])),alpha) #get alpha shape
+
+    if proj_grid.shape[0]*proj_grid.shape[1]>10000:
+        #many pixels: get area from alpha-shape polygon (computational cheaper than counting pixel and relatively accurate for large aggregates<5% deviation)
+        area = alpha_shape.area 
+    else: #few pixels: pixel-wise evaluation of area
+        area=0
+        for i in range(0,proj_grid.shape[0]):
+            for j in range(0,proj_grid.shape[1]):
+                if Point(i,j).intersects(alpha_shape):
+                    area+=1
+
+    return area
 
 class Aggregate(object):
     """A volume-element aggregate model.
@@ -101,12 +130,15 @@ class Aggregate(object):
             self.extent = [[0.,0.],[0.,0.],[0.,0.]]
 
 
-    def project_on_dim(self, dim=2):
+    def project_on_dim(self, dim=2, direction=None):
         """Make a 2D projection of the aggregate.
 
         Args:
             dim: The dimension along which the projection is made 
                 (0<=dim<=2, default 2)
+            direction: a 2-tuple of Euler angles (alpha, beta) 
+                in radians, giving the viewpoint direction (default None,
+                if not None then dim is ignored)
 
         Returns:
             2D array with the projection along the given dimension.
@@ -122,30 +154,42 @@ class Aggregate(object):
             If dim==2, the two dimensions of the returned array are the
             dimensions (x,y) of the aggregate (in that order).
         """
+        if direction is not None:
+            dim = 0
+            (alpha, beta) = direction
+            R = rotator.Rotator.rotation_matrix(alpha, beta, 0)
+            self.X = self.X.dot(R)
+            self.update_extent()
 
-        ext = self.extent
-        if dim == 0:
-            xp = (self.X[:,1]-ext[1][0]) / self.grid_res
-            yp = (self.X[:,2]-ext[2][0]) / self.grid_res
-        elif dim == 1:
-            xp = (self.X[:,0]-ext[0][0]) / self.grid_res
-            yp = (self.X[:,2]-ext[2][0]) / self.grid_res
-        elif dim == 2:
-            xp = (self.X[:,0]-ext[0][0]) / self.grid_res
-            yp = (self.X[:,1]-ext[1][0]) / self.grid_res
-        else:
-            raise AttributeError("Argument dim must be 0<=dim<=2.")
+        try:
+            ext = self.extent
+            if dim == 0:
+                xp = (self.X[:,1]-ext[1][0]) / self.grid_res
+                yp = (self.X[:,2]-ext[2][0]) / self.grid_res
+            elif dim == 1:
+                xp = (self.X[:,0]-ext[0][0]) / self.grid_res
+                yp = (self.X[:,2]-ext[2][0]) / self.grid_res
+            elif dim == 2:
+                xp = (self.X[:,0]-ext[0][0]) / self.grid_res
+                yp = (self.X[:,1]-ext[1][0]) / self.grid_res
+            else:
+                raise AttributeError("Argument dim must be 0<=dim<=2.")
 
-        x_max = int(round(xp.max()))
-        y_max = int(round(yp.max()))
+            x_max = int(round(xp.max()))
+            y_max = int(round(yp.max()))
 
-        proj_grid = np.zeros((x_max+1,y_max+1), dtype=np.uint8)
-        proj_grid[xp.round().astype(int), yp.round().astype(int)] = 1
+            proj_grid = np.zeros((x_max+1,y_max+1), dtype=np.uint8)
+            proj_grid[xp.round().astype(int), yp.round().astype(int)] = 1
+
+        finally:
+            if direction is not None:
+                self.X = self.X.dot(R.T)
+                self.update_extent()
 
         return proj_grid
 
 
-    def projected_area(self, dim=2):
+    def projected_area(self, dim=2, direction=None, method="default"):
         """Projected area of the aggregate.
 
         Uses the project_on_dim function to compute the projection.
@@ -153,12 +197,29 @@ class Aggregate(object):
         Args:
             dim: The dimension along which the projection is made 
                 (0<=dim<=2, default 2)
+            direction: a 2-tuple of Euler angles (alpha, beta) 
+                in radians, giving the viewpoint direction (default None,
+                if not None then dim is ignored)
+            method: default: count pixels in projection
+                    alphashape: approximate projection by an alpha-shape (this eliminates holes in the projection and smoothes the boundaries)
 
         Returns:
             The projected area along the given dimension.
         """
-        proj_grid = self.project_on_dim(dim=dim)
-        return proj_grid.sum() * self.grid_res**2
+        
+        if method=="default":
+            proj_grid = self.project_on_dim(dim=dim, direction=direction)
+            return proj_grid.sum() * self.grid_res**2
+        elif method=="alphashape":
+
+            proj_grid = self.project_on_dim(dim=dim)
+            proj_grid_alpha_sum = get_proj_area_from_alphashape(proj_grid,alpha=0.5) 
+            return proj_grid_alpha_sum * self.grid_res**2
+        else:
+            print "method \"" + method +"\" not implemented in projected area; use default()"
+            proj_grid = self.project_on_dim(dim=dim, direction=direction)
+            return proj_grid.sum() * self.grid_res**2
+            
 
 
     def vertical_projected_area(self):
@@ -166,7 +227,7 @@ class Aggregate(object):
         return self.projected_area(dim=2)
 
 
-    def projected_aspect_ratio(self, dim=2):
+    def projected_aspect_ratio(self, dim=2, direction=None):
         """The projected aspect ratio of the aggregate.
 
         Uses the project_on_dim function to compute the projection.
@@ -174,13 +235,16 @@ class Aggregate(object):
         Args:
             dim: The dimension along which the projection is made 
                 (0<=dim<=2, default 2)
+            direction: a 2-tuple of Euler angles (alpha, beta) 
+                in radians, giving the viewpoint direction (default None,
+                if not None then dim is ignored)
 
         Returns:
             The aspect ratio (defined as the ratio of the maximum extents
             of the projected dimensions) along the given dimension.
         """
 
-        proj_grid = self.project_on_dim(dim=dim)
+        proj_grid = self.project_on_dim(dim=dim, direction=direction)
 
         x_proj = proj_grid.any(axis=0)
         y_proj = proj_grid.any(axis=1)
@@ -621,6 +685,22 @@ class RimedAggregate(Aggregate):
                     np.array([x,y]))**2).sum(1) < grid_res_sqr*dist_mul**2
                 return self.X[X_filter,:]
 
+        if compact_dist > 0:
+            if use_indexing:
+                elem_index_3d = Index3D(elem_size=grid_res)            
+                elem_index_3d.insert(self.X)
+                def find_overlapping_3d(x,y,z,dist_mul=1):
+                    p_near = np.array(list(elem_index_3d.items_near((x,y,z), grid_res*dist_mul)))
+                    if not p_near.shape[0]:
+                        return p_near
+                    p_filter = ((p_near-[x,y,z])**2).sum(1) < grid_res_sqr*dist_mul**2
+                    return p_near[p_filter,:]
+            else:
+                def find_overlapping_3d(x,y,z,dist_mul=1):
+                    X_filter = ((self.X - 
+                        np.array([x,y,z]))**2).sum(1) < grid_res_sqr*dist_mul**2
+                    return self.X[X_filter,:]
+
         added_particles = np.empty((N, 3))
 
         for particle_num in xrange(N):
@@ -677,13 +757,14 @@ class RimedAggregate(Aggregate):
 
                         # run the compacting first
                         if compact_dist > 0:
-                            X = np.array([xs, ys, zc])
                             # locate nearby particles to use for the compacting
-                            X_near = find_overlapping(xs, ys, dist_mul=2)
-                            r_sqr = ((X_near-X)**2).sum(axis=1)
-                            X_near = X_near[r_sqr<(2*self.grid_res)**2,:]
-                            (xs, ys, zc) = self.compact_rime(X, X_near, 
-                                max_dist=compact_dist)
+                            X_near = find_overlapping_3d(xs, ys, zc, dist_mul=2)
+                            if X_near.size > 0:
+                                X = np.array([xs, ys, zc])
+                                r_sqr = ((X_near-X)**2).sum(axis=1)
+                                X_near = X_near[r_sqr<(2*self.grid_res)**2,:]
+                                (xs, ys, zc) = self.compact_rime(X, X_near, 
+                                    max_dist=compact_dist)
 
                         added_particles[particle_num,:] = [xs, ys, zc]
                         site_found = True
@@ -740,8 +821,6 @@ class RimedAggregate(Aggregate):
                 break
             if ((X-X_last)**2).sum() < min_move_sqr:
                 break
-
-
 
         return X
 
