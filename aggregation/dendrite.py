@@ -42,7 +42,7 @@ def generate_dendrite(alpha, beta, gamma, grid_size=1000, num_iter=10000):
         (grid_size,1)).T
     boundary_mask = (x**2+y**2 >= (grid_size/2.0)**2)
     grid[:] = beta
-    grid[grid_size/2,grid_size/2] = 1.0
+    grid[grid_size//2,grid_size//2] = 1.0
    
     it = 0
 
