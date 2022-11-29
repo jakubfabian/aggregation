@@ -63,8 +63,9 @@ def generate_dendrite(alpha, beta, gamma, grid_size=1000, num_iter=10000):
                               [alpha/12.0, 1.0-alpha/2.0, alpha/12.0],
                               [0.0,        alpha/12.0,    alpha/12.0]])
                             
-   
-    while it < num_iter:
+    dist_map = numpy.sqrt(x**2+y**2)
+    margin = 999.0
+    while (it < num_iter) and (margin > 0.5):
         ice = (grid >= 1.0)
         receptive = (ndimage.convolve(ice,neighbor_k_even,mode='constant') > 0.0)
         receptive[odd,:] = (ndimage.convolve(ice,neighbor_k_odd,mode='constant')[odd,:] > 0.0)
@@ -81,7 +82,8 @@ def generate_dendrite(alpha, beta, gamma, grid_size=1000, num_iter=10000):
         grid += nonrecp
         
         grid[boundary_mask] = beta
+        margin = numpy.abs(grid_size/2.0 - numpy.max(dist_map[ice]))
         
         it += 1
-      
+    #print("Reiter algorithm stopped at {} iterations with margin {}".format(it, margin))      
     return grid
