@@ -79,7 +79,7 @@ def monodisp_demo2(N=5):
             print(i, j)
             agg_top = agg[i] if (m_r[i] > m_r[j]) else agg[j]
             agg_btm = agg[i] if (m_r[i] <= m_r[j]) else agg[j]
-            collision = agg_top.add_particle(particle=agg_btm.X,required=True, add_N_monomers=agg_btm.monomer_number)
+            collision = agg_top.add_particle(particle=agg_btm.X,required=True, add_N_monomers=agg_btm.monomer_number, add_id_branch=agg_btm.id_tree)
             agg_top.align()
             agg.pop(i if (m_r[i] <= m_r[j]) else j)            
       

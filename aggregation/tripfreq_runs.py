@@ -63,7 +63,7 @@ def generate_aggregate(monomer_generator,N=5,align=True):
                 agg_top = agg[i] if (m_r[i] > m_r[j]) else agg[j]
                 agg_btm = agg[i] if (m_r[i] <= m_r[j]) else agg[j]
                 agg_btm.rotate(uniform_rot)
-                collision = agg_top.add_particle(particle=agg_btm.X,required=True,pen_depth=80e-6, add_N_monomers=agg_btm.monomer_number)
+                collision = agg_top.add_particle(particle=agg_btm.X,required=True,pen_depth=80e-6, add_N_monomers=agg_btm.monomer_number, add_id_branch=agg_btm.id_tree)
                 if collision:
                     if align:
                         agg_top.align()

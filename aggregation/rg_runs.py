@@ -64,7 +64,7 @@ def monodisp_dendrite(N=5,grid=None,align=True):
             print(i, j)
             agg_top = agg[i] if (m_r[i] > m_r[j]) else agg[j]
             agg_btm = agg[i] if (m_r[i] <= m_r[j]) else agg[j]
-            collision = agg_top.add_particle(particle=agg_btm.X,required=False, add_N_monomers=agg_btm.monomer_number)
+            collision = agg_top.add_particle(particle=agg_btm.X,required=False, add_N_monomers=agg_btm.monomer_number, add_id_branch=agg_btm.id_tree)
             if collision:
                if align:
                   agg_top.align()
@@ -151,7 +151,7 @@ def polydisp_dendrite(N=5,grid=None,align=True):
             print(i, j)
             agg_top = agg[i] if (m_r[i] > m_r[j]) else agg[j]
             agg_btm = agg[i] if (m_r[i] <= m_r[j]) else agg[j]
-            collision = agg_top.add_particle(particle=agg_btm.X,required=True, add_N_monomers=agg_btm.monomer_number)
+            collision = agg_top.add_particle(particle=agg_btm.X,required=True, add_N_monomers=agg_btm.monomer_number, add_id_branch=agg_btm.id_tree)
             if collision:
                if align:
                   agg_top.align()
@@ -210,7 +210,7 @@ def monodisp_pseudo(N=5,grid=None,sig=1.0):
    p_agg = aggregate.PseudoAggregate(gen, sig=sig)
    aggs = [aggregate.Aggregate(gen, levels=5) for i in xrange(N-1)]
    for agg in aggs:
-      p_agg.add_particle(particle=agg.X,required=False, add_N_monomers=agg.monomer_number)
+      p_agg.add_particle(particle=agg.X,required=False, add_N_monomers=agg.monomer_number, add_id_branch=agg.id_tree)
    return p_agg
       
       

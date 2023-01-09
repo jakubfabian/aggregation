@@ -237,7 +237,8 @@ def generate_rimed_aggregate_iter(monomer_generator, N=5, align=True,
                 collision = agg_top.add_particle(
                     particle=agg_btm.X,ident=agg_btm.ident,
                     required=True,pen_depth=80e-6,
-                    add_N_monomers=agg_btm.monomer_number)
+                    add_N_monomers=agg_btm.monomer_number,
+                    add_id_branch=agg_btm.id_tree)
                 if collision:
                     if align:
                         agg_top.align()
