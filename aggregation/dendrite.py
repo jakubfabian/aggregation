@@ -86,5 +86,6 @@ def generate_dendrite(alpha, beta, gamma, grid_size=1000, num_iter=10000, verbos
         
         it += 1
     if verbose:
-        print("Reiter algorithm stopped at {} iterations with margin {}".format(it, margin))      
+        print("Reiter algorithm stopped at {} iterations with margin {}".format(it, margin))
+        return grid, it, margin
     return grid
