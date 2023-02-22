@@ -22,7 +22,7 @@ import numpy
 from numpy import array
 from scipy import ndimage
 
-def generate_dendrite(alpha, beta, gamma, grid_size=1000, num_iter=10000):
+def generate_dendrite(alpha, beta, gamma, grid_size=1000, num_iter=10000, verbose=False):
     """Generate a 2D dendrite.
 
     This is a numpy vectorized implementation of the algorithm by Reiter
@@ -85,5 +85,6 @@ def generate_dendrite(alpha, beta, gamma, grid_size=1000, num_iter=10000):
         margin = numpy.abs(grid_size/2.0 - numpy.max(dist_map[ice]))
         
         it += 1
-    #print("Reiter algorithm stopped at {} iterations with margin {}".format(it, margin))      
+    if verbose:
+        print("Reiter algorithm stopped at {} iterations with margin {}".format(it, margin))      
     return grid
