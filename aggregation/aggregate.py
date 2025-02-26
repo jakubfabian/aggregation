@@ -292,7 +292,7 @@ class Aggregate(object):
 
                   
     def add_particle(self, particle=None, ident=None, required=False, 
-        pen_depth=0.0, add_N_monomers=None, add_id_branch=None):
+        pen_depth=0.0, pen_depth_by_mass_fraction=100., add_N_monomers=None, add_id_branch=None):
 
         """Merge another particle into this one.
 
@@ -311,6 +311,9 @@ class Aggregate(object):
                 if a merging point was not found.
             pen_depth: The penetration depth, i.e. the distance that the
                 other particle is allowed to penetrate inside this particle.
+            pen_depth_by_mass_fraction: furthest away fraction ]1-100] of particle mass
+                that is ignored when considering intersection.
+                E.g. for plates, a value of .5 ignores point that are larger than radius == sqrt(.5)
 
         Returns:
             True if the merge was successful, False otherwise.
@@ -321,12 +324,21 @@ class Aggregate(object):
             particle = self._generator.generate().T
             add_N_monomers = 1
             add_id_branch = -9999
-        x = particle[:,0]
-        y = particle[:,1]
-        z = particle[:,2]
-        extent = [[x.min(), x.max()], [y.min(), y.max()], [z.min(), z.max()]]
+        x, y, z = particle.T
+        extent = [(_.min(), _.max()) for _ in (x,y,z)]
         grid_res = self.grid_res
         grid_res_sqr = grid_res**2
+
+        assert pen_depth_by_mass_fraction > 1, f"{pen_depth_by_mass_fraction=} has to be between ]1,100]"
+        assert pen_depth_by_mass_fraction <= 100, f"{pen_depth_by_mass_fraction=} has to be between ]1,100]"
+        if pen_depth_by_mass_fraction < 100:
+            if pen_depth > 0:
+                raise ValueError(f"Using {pen_depth=} together with {pen_depth_by_mass_fraction=} is not recommended. Only continue if you know what you are doing")
+            particle_center = np.mean(particle, axis=0)
+            distance2center = np.linalg.norm(particle - particle_center, axis=1)
+            mask = distance2center <= np.percentile(distance2center, pen_depth_by_mass_fraction)
+            x, y, z = particle[mask].T
+            extent = [(_.min(), _.max()) for _ in particle[mask].T]
 
         # limits for random positioning of the other particle
         x0 = (self.extent[0][0]-extent[0][1])
@@ -401,8 +413,7 @@ class Aggregate(object):
    
         if site_found:
             # move the candidate to the right location in the z direction
-            zs = z+min_z_sep+pen_depth
-            p_shift = np.vstack((xs,ys,zs)).T
+            p_shift = particle + np.array([x_shift, y_shift, min_z_sep + pen_depth])
             if ident is None:
                 ident = np.zeros(p_shift.shape[0], dtype=np.int32)
             self.add_elements(p_shift, ident=ident)

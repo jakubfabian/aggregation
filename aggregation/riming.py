@@ -196,7 +196,7 @@ def generate_rimed_aggregate(*args, **kwargs):
 
 def generate_rimed_aggregate_iter(monomer_generator, N=5, align=True,
     riming_lwp=0.0, riming_eff=1.0, riming_mode="simultaneous",
-    pen_depth=80e-6, rime_pen_depth=120e-6, seed=None, lwp_div=10, compact_dist=0.,
+    pen_depth=80e-6, pen_depth_by_mass_fraction=100., rime_pen_depth=120e-6, seed=None, lwp_div=10, compact_dist=0.,
     debug=False):
     """Generate a rimed aggregate particle.
 
@@ -238,6 +238,7 @@ def generate_rimed_aggregate_iter(monomer_generator, N=5, align=True,
                     particle=agg_btm.X,ident=agg_btm.ident,
                     required=True,
                     pen_depth=pen_depth,
+                    pen_depth_by_mass_fraction=pen_depth_by_mass_fraction,
                     add_N_monomers=agg_btm.monomer_number,
                     add_id_branch=agg_btm.id_tree)
                 if collision:
