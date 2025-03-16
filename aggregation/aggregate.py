@@ -291,6 +291,18 @@ class Aggregate(object):
         return (v*np.sqrt(l))[:,::-1] # return in descending order
 
                   
+    def pen_depth_intersection_mask(self, Xp, pen_depth, pen_depth_by_mass_fraction, verbose=False):
+        if pen_depth_by_mass_fraction >= 100: return np.ones(len(Xp)).astype(np.bool)
+        center = np.mean(Xp, axis=0)
+        distance2center = np.linalg.norm(Xp - center, axis=1)
+        mask_mf = distance2center <= np.percentile(distance2center, pen_depth_by_mass_fraction)
+        mask_pd = distance2center <= (distance2center.max() - pen_depth)
+        mask = mask_mf | mask_pd
+        if verbose:
+            print(f"mf={sum(mask_mf)/len(mask)*100:.1f}% pd={sum(mask_pd)/len(mask)*100:.1f}% mask={sum(mask)/len(mask)*100:.1f}%")
+        return mask
+
+
     def add_particle(self, particle=None, ident=None, required=False, 
         pen_depth=0.0, pen_depth_by_mass_fraction=100., add_N_monomers=None, add_id_branch=None):
 
@@ -331,14 +343,10 @@ class Aggregate(object):
 
         assert pen_depth_by_mass_fraction > 1, f"{pen_depth_by_mass_fraction=} has to be between ]1,100]"
         assert pen_depth_by_mass_fraction <= 100, f"{pen_depth_by_mass_fraction=} has to be between ]1,100]"
-        if pen_depth_by_mass_fraction < 100:
-            if pen_depth > 0:
-                raise ValueError(f"Using {pen_depth=} together with {pen_depth_by_mass_fraction=} is not recommended. Only continue if you know what you are doing")
-            particle_center = np.mean(particle, axis=0)
-            distance2center = np.linalg.norm(particle - particle_center, axis=1)
-            mask = distance2center <= np.percentile(distance2center, pen_depth_by_mass_fraction)
-            x, y, z = particle[mask].T
-            extent = [(_.min(), _.max()) for _ in particle[mask].T]
+
+        imask = self.pen_depth_intersection_mask(particle, pen_depth, pen_depth_by_mass_fraction)
+        x, y, z = particle[imask].T
+        extent = [(_.min(), _.max()) for _ in particle[imask].T]
 
         # limits for random positioning of the other particle
         x0 = (self.extent[0][0]-extent[0][1])
@@ -372,12 +380,13 @@ class Aggregate(object):
                    break   
         
             # elements from this particle that are candidates for connection
+            imask = self.pen_depth_intersection_mask(self.X, pen_depth, pen_depth_by_mass_fraction)
             X_filter = \
                 (self.X[:,0] >= overlapping_range[0]) & \
                 (self.X[:,0] < overlapping_range[1]) & \
                 (self.X[:,1] >= overlapping_range[2]) & \
                 (self.X[:,1] < overlapping_range[3])
-            overlapping_X = self.X[X_filter,:]
+            overlapping_X = self.X[X_filter & imask,:]
             if not len(overlapping_X):
                 if required:
                    continue
@@ -402,10 +411,8 @@ class Aggregate(object):
             for elem in overlapping_Xp:
                 # find elements in this aggregate that are near the
                 # currently tested element in the x,y plane
-                candidates = elem_index.items_near(elem[:2], 
-                    grid_res)
-                min_z_sep = min(min_z_sep, min_z_separation(candidates, 
-                    elem, grid_res_sqr))
+                candidates = np.array(list(elem_index.items_near(elem[:2], grid_res)))
+                min_z_sep = min(min_z_sep, min_z_separation(candidates, elem, grid_res_sqr))
                     
             site_found = not np.isinf(min_z_sep)            
             if not required:
@@ -413,7 +420,11 @@ class Aggregate(object):
    
         if site_found:
             # move the candidate to the right location in the z direction
-            p_shift = particle + np.array([x_shift, y_shift, min_z_sep + pen_depth])
+            if pen_depth_by_mass_fraction < 100:
+                p_shift = particle + np.array([x_shift, y_shift, min_z_sep])
+            else:
+                p_shift = particle + np.array([x_shift, y_shift, min_z_sep + pen_depth])
+
             if ident is None:
                 ident = np.zeros(p_shift.shape[0], dtype=np.int32)
             self.add_elements(p_shift, ident=ident)
