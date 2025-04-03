@@ -192,11 +192,25 @@ def minimum_covering_sphere(points):
    
     candidate_indices = [point_1_index]
     finished = False
+    it=0
+    Ncenter = 5
+    past_centers = np.ones((Ncenter,3)) * np.nan
     while not finished:
-        center = new_center
-        (finished, new_center, candidate_indices) = find_next_candidate(
-            points, center, candidate_indices)
-        #print(candidate_indices)
+        past_centers = np.roll(past_centers, 1, axis=0)
+        past_centers[0, :] = new_center
+        (finished, new_center, candidate_indices) = find_next_candidate(points, past_centers[0, :], candidate_indices)
+        # look if we earlier got this exact center detected. Skip if we have... this is needed because we sometimes find ourselves in a circular loop
+        if (it>Ncenter) & (not finished):
+            for ipc, pc in enumerate(past_centers):
+                if np.all(np.abs(new_center - pc) < 1e-32):
+                    finished = True
+                    break
+
+        if it>1000:
+            print(f"{finished=} {past_centers[0, :]=} {new_center=} {candidate_indices=}")
+        if it>10000:
+            raise ValueError(f"Too many iterations in mcs! {it=}")
+        it+=1
     diff = points[candidate_indices[0],:] - new_center
     radius = math.sqrt(np.dot(diff,diff))
     return (new_center, radius)
