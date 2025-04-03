@@ -295,7 +295,9 @@ class Aggregate(object):
         if pen_depth_by_mass_fraction >= 100: return np.ones(len(Xp)).astype(np.bool)
         center = np.mean(Xp, axis=0)
         distance2center = np.linalg.norm(Xp - center, axis=1)
-        mask_mf = distance2center <= np.percentile(distance2center, pen_depth_by_mass_fraction)
+        #distance_limit = np.percentile(distance2center, pen_depth_by_mass_fraction) # gave unreliable/unreproducible results
+        distance_limit = np.sort(distance2center)[int(len(distance2center)*pen_depth_by_mass_fraction/100)]
+        mask_mf = distance2center <= distance_limit
         mask_pd = distance2center <= (distance2center.max() - pen_depth)
         mask = mask_mf | mask_pd
         if verbose:
