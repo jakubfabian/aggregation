@@ -25,6 +25,12 @@ except:
 import numpy as np
 import math
 
+try:
+    import miniball
+    HAVE_MINIBALL=True
+except:
+    HAVE_MINIBALL=False
+
 
 def mcsc(points, candidate_indices):
     candidate_count = len(candidate_indices)
@@ -166,7 +172,7 @@ def find_next_candidate(points, center, candidate_indices):
     return (False, new_center, candidate_indices)
 
 
-def minimum_covering_sphere(points):
+def minimum_covering_sphere(points, use_miniball=True):
     """Minimum covering sphere.
 
     Based on http://www.mel.nist.gov/msidlibrary/doc/hopp95.pdf
@@ -178,6 +184,11 @@ def minimum_covering_sphere(points):
         A tuple (center, radius) where center is a (3,) array with the
         coordinates of the center of the 
     """
+
+    if use_miniball and HAVE_MINIBALL:
+        mb = miniball.Miniball(points)
+        return mb.center(), mb.squared_radius()**.5
+
     points = np.asarray(points).astype(np.float64)
     point_0 = points[0,:]
     new_center = point_0

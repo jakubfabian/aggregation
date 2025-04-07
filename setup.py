@@ -17,5 +17,8 @@ setup(name='aggregation',
             'aggregation': ['dendrite_grid.dat'],            
       },
       long_description = long_description,
-      license = 'MIT'
+      license = 'MIT',
+      install_requires=[
+          'MiniballCpp',
+      ],
      )
