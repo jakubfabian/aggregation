@@ -235,12 +235,15 @@ def generate_rimed_aggregate_iter(monomer_generator, N=5, align=True,
                 agg_btm.rotate(uniform_rot)
 
                 collision = agg_top.add_particle(
-                    particle=agg_btm.X,ident=agg_btm.ident,
+                    particle=agg_btm.X,
+                    ident=agg_btm.ident,
                     required=True,
                     pen_depth=pen_depth,
                     pen_depth_by_mass_fraction=pen_depth_by_mass_fraction,
                     add_N_monomers=agg_btm.monomer_number,
-                    add_id_branch=agg_btm.id_tree)
+                    add_id_branch=agg_btm.id_tree,
+                    add_mono_type=agg_btm.mono_type,
+                    )
                 if collision:
                     if align:
                         agg_top.align()

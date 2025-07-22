@@ -110,6 +110,7 @@ class Aggregate(object):
         self.update_extent()
         self.monomer_number = 1
         self.id_tree = ident
+        self.mono_type = generator.crystal
 
 
     def update_extent(self):
@@ -306,7 +307,7 @@ class Aggregate(object):
 
 
     def add_particle(self, particle=None, ident=None, required=False, 
-        pen_depth=0.0, pen_depth_by_mass_fraction=100., add_N_monomers=None, add_id_branch=None):
+        pen_depth=0.0, pen_depth_by_mass_fraction=100., add_N_monomers=None, add_id_branch=None, add_mono_type=None):
 
         """Merge another particle into this one.
 
@@ -432,6 +433,7 @@ class Aggregate(object):
             self.add_elements(p_shift, ident=ident)
             self.monomer_number += add_N_monomers
             self.id_tree = [self.id_tree, add_id_branch]
+            self.mono_type = [self.mono_type, add_mono_type]
             
         return site_found        
          
