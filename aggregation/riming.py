@@ -316,16 +316,17 @@ def gen_polydisperse_monomer(monomers=[], ratios=[]):
     return polygen
 
 
-def gen_monomer(psd="monodisperse", size=1e-3, min_size=0.1e-3, 
-    max_size=20e-3, mono_type="dendrite", grid_res=0.02e-3, 
+def gen_monomer(psd="monodisperse", size=1e-3, shape=3.0, min_size=0.1e-3,
+    max_size=20e-3, mono_type="dendrite", grid_res=0.02e-3,
     rimed=False, debug=False):
     """Make a monomer crystal generator.
 
     Args:
-        psd: "monodisperse" or "exponential".
+        psd: "monodisperse" or "exponential" or "gamma"
         size: If psd="monodisperse", this is the diameter of the ice
             crystals. If psd="exponential", this is the inverse of the
             slope parameter (usually denoted as lambda).
+        shape: shape parameter of the gamma distribution
         min_size, max_size: Minimum and maximum allowed size for generated
             crystals.
         mono_type: The type of crystals used. The possible values are
@@ -368,7 +369,12 @@ def gen_monomer(psd="monodisperse", size=1e-3, min_size=0.1e-3,
             D=max_size+1
             while (D<min_size) or (D>max_size):
                 D = psd_f.rvs()
-        
+        elif psd=="gamma":
+            psd_f = stats.gamma(a=shape,scale=size)
+            D=max_size+1
+            while (D<min_size) or (D>max_size):
+                D = psd_f.rvs()
+
         cry = make_cry(D)
         if debug:
             print(D, mono_type)
