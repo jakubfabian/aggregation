@@ -438,6 +438,7 @@ class Aggregate(object):
                     x = points[:, 0]
                     y = points[:, 1]
                     z = points[:, 2]
+                    if len(points)<1: return points
 
                     # Set bin edges
                     x_range = (x.min(), x.max())
