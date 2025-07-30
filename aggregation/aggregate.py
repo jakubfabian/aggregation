@@ -342,7 +342,6 @@ class Aggregate(object):
         x, y, z = particle.T
         extent = [(_.min(), _.max()) for _ in (x,y,z)]
         grid_res = self.grid_res
-        grid_res_sqr = grid_res**2
 
         assert pen_depth_by_mass_fraction > 1, f"{pen_depth_by_mass_fraction=} has to be between ]1,100]"
         assert pen_depth_by_mass_fraction <= 100, f"{pen_depth_by_mass_fraction=} has to be between ]1,100]"
@@ -396,10 +395,6 @@ class Aggregate(object):
                 else:
                    break
     
-            # index candidate particles in x,y plane
-            elem_index = Index2D(elem_size=grid_res)
-            elem_index.insert(overlapping_X[:,:2],overlapping_X)
-            
             # candidates from the other particle
             X_filter = \
                 (xs >= overlapping_range[0]) & \
@@ -410,12 +405,73 @@ class Aggregate(object):
                 xs[X_filter],ys[X_filter],z[X_filter])).T
             
             # find displacement in z direction
-            min_z_sep = np.inf
-            for elem in overlapping_Xp:
-                # find elements in this aggregate that are near the
-                # currently tested element in the x,y plane
-                candidates = np.array(list(elem_index.items_near(elem[:2], grid_res)))
-                min_z_sep = min(min_z_sep, min_z_separation(candidates, elem, grid_res_sqr))
+
+            def find_min_distance(pc1, pc2, epsilon):
+                epsilon_sqr = epsilon**2
+                elem_index2d = Index2D(elem_size=epsilon)
+                elem_index2d.insert(pc1[:,:2],pc1)
+                min_z_sep = np.inf
+                for elem in pc2:
+                    # find elements in this aggregate that are near the
+                    # currently tested element in the x,y plane
+                    candidates = np.array(list(elem_index2d.items_near(elem[:2], epsilon)))
+                    min_z_sep = min(min_z_sep, min_z_separation(candidates, elem, epsilon_sqr))
+                return min_z_sep
+
+            import os
+            MAXHEIGHTCOLLISION = float(os.environ.get('MAXHEIGHTCOLLISION', 1./np.sqrt(2)))
+            if MAXHEIGHTCOLLISION > 0:
+                def max_height_per_bin(points, bin_size, inverse=False):
+                    import numpy as np
+                    """
+                    Use np.digitize to bin points into a 2D grid and get the max-z point in each bin.
+
+                    Parameters:
+                        points: (N, 3) array of x, y, z
+                        bin_size: scalar
+                        x_range: (min_x, max_x) (optional, computed from data if None)
+                        y_range: (min_y, max_y)
+
+                    Returns:
+                        (M, 3) array of highest points per bin
+                    """
+                    x = points[:, 0]
+                    y = points[:, 1]
+                    z = points[:, 2]
+
+                    # Set bin edges
+                    x_range = (x.min(), x.max())
+                    y_range = (y.min(), y.max())
+                    x_bins = np.arange(x_range[0], x_range[1] + bin_size, bin_size)
+                    y_bins = np.arange(y_range[0], y_range[1] + bin_size, bin_size)
+
+                    # Bin index starts at 1 (np.digitize behavior)
+                    x_idx = np.digitize(x, x_bins) - 1
+                    y_idx = np.digitize(y, y_bins) - 1
+
+                    bin_index = x_idx + y_idx * len(x_bins)
+
+                    # Find max z per bin
+                    if inverse:
+                        sort_idx = np.lexsort((-z, bin_index))  # Sort by bin then z
+                    else:
+                        sort_idx = np.lexsort((z, bin_index))  # Sort by bin then z
+
+                    sorted_bin_idx = bin_index[sort_idx]
+                    unique, first_indices = np.unique(sorted_bin_idx[::-1], return_index=True)
+
+                    # Get max z point per bin
+                    max_indices = sort_idx[::-1][first_indices]
+                    max_points = points[max_indices]
+
+                    return max_points
+                pc1 = max_height_per_bin(overlapping_X , grid_res*MAXHEIGHTCOLLISION, inverse=True)
+                pc2 = max_height_per_bin(overlapping_Xp, grid_res*MAXHEIGHTCOLLISION, inverse=False)
+            else:
+                pc1, pc2 = overlapping_X, overlapping_Xp
+
+            min_z_sep = find_min_distance(pc1, pc2, grid_res)
+
                     
             site_found = not np.isinf(min_z_sep)            
             if not required:
